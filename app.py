@@ -124,26 +124,19 @@ def estimate_transcription_time(duration_sec: Optional[float], measured_rtf: Opt
 
 
 def format_display_transcript(segments: list[dict]) -> str:
+    """Formats segments into clean, continuous, readable paragraphs without timestamps or time markers."""
     if not segments:
         return ""
-    lines = []
+    paragraphs = []
     for s in segments:
         text = str(s.get("text", "")).strip()
-        if not text:
-            continue
-        start = s.get("start")
-        if start is not None:
-            sec = int(round(float(start)))
-            h, r = divmod(sec, 3600)
-            m, s_val = divmod(r, 60)
-            ts = f"[{h:02d}:{m:02d}:{s_val:02d}]" if h > 0 else f"[{m:02d}:{s_val:02d}]"
-            lines.append(f"{ts} {text}")
-        else:
-            lines.append(text)
-    return "\n\n".join(lines)
+        if text:
+            paragraphs.append(text)
+    return "\n\n".join(paragraphs)
 
 
 def get_active_transcript() -> str:
+    """Returns the current transcript text (latest edited or formatted clean segments) without timestamps."""
     if st.session_state.edited_transcript is not None:
         return st.session_state.edited_transcript.strip()
     if st.session_state.segments:
@@ -309,28 +302,6 @@ st.markdown(
     .upload-zone-wrapper:hover {
         border-color: #6366F1;
         background: #F5F7FF;
-    }
-    .cloud-icon-circle {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        background: #EEF2FF;
-        color: #4F46E5;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 12px auto;
-    }
-    .upload-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #1E293B;
-        margin-bottom: 4px;
-    }
-    .upload-desc {
-        font-size: 13px;
-        color: #64748B;
-        margin-bottom: 12px;
     }
     .format-pill {
         display: inline-block;
@@ -507,11 +478,11 @@ st.markdown(
         margin: 0 auto;
     }
 
-    /* Transcript Box */
+    /* Transcript Box — Clean, continuous, readable paragraphs */
     .transcript-container {
-        max-height: 460px;
+        max-height: 480px;
         overflow-y: auto;
-        padding: 16px 20px;
+        padding: 20px 24px;
         background: #F8FAFC;
         border: 1px solid #E2E8F0;
         border-radius: 12px;
@@ -533,32 +504,15 @@ st.markdown(
     .transcript-container::-webkit-scrollbar-thumb:hover {
         background: #94A3B8;
     }
-    .transcript-segment-line {
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-        margin-bottom: 14px;
-        line-height: 1.65;
-    }
-    .transcript-segment-line:last-child {
-        margin-bottom: 0;
-    }
-    .timestamp-badge {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 12px;
-        font-weight: 700;
-        background: #EEF2FF;
-        color: #4F46E5;
-        border: 1px solid #E0E7FF;
-        padding: 2px 7px;
-        border-radius: 6px;
-        white-space: nowrap;
-        user-select: none;
-    }
-    .transcript-text {
-        font-size: 14.5px;
+    .transcript-paragraph {
+        font-size: 15px;
+        line-height: 1.75;
         color: #1E293B;
+        margin-bottom: 16px;
         letter-spacing: -0.01em;
+    }
+    .transcript-paragraph:last-child {
+        margin-bottom: 0;
     }
     </style>
     """,
@@ -1261,8 +1215,7 @@ st.markdown(
 col_gen_title, col_gen_actions = st.columns([1, 1], gap="medium")
 
 with col_gen_title:
-    segment_count = len(st.session_state.segments) if st.session_state.segments else 0
-    badge_label = "Edited" if st.session_state.edited_transcript else (f"{segment_count} Segments" if segment_count > 0 else "")
+    badge_label = "Edited" if st.session_state.edited_transcript else ""
     badge_html = f'<span style="background: #EEF2FF; color: #4F46E5; border: 1px solid #C7D2FE; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-left: 10px;">{badge_label}</span>' if badge_label else ""
 
     st.markdown(
@@ -1465,7 +1418,7 @@ if has_active_transcript:
             """
             <div style="margin-top: 14px; margin-bottom: 8px;">
                 <span style="font-size: 13px; font-weight: 600; color: #475569;">
-                    Edit the transcript below. Changes will be reflected in text file downloads, copy, and playback views.
+                    Edit the transcript below. Changes will be saved as plain text and reflected in text file downloads, copy, and playback views.
                 </span>
             </div>
             """,
@@ -1483,7 +1436,7 @@ if has_active_transcript:
         col_save, col_cancel, _ = st.columns([1.5, 1.5, 5], gap="small")
         with col_save:
             if st.button("💾 Save Changes", type="primary", use_container_width=True, key="btn_save_changes"):
-                st.session_state.edited_transcript = edited_val
+                st.session_state.edited_transcript = edited_val.strip()
                 st.session_state.is_editing = False
                 st.toast("Transcript changes saved successfully!", icon="✅")
                 st.rerun()
@@ -1493,37 +1446,17 @@ if has_active_transcript:
                 st.rerun()
 
     else:
-        # Standard View Mode: Timestamps alongside corresponding transcript segments
+        # Standard View Mode: Clean, continuous readable text with proper paragraphs (no timestamps or duration labels)
         st.markdown('<div class="transcript-container">', unsafe_allow_html=True)
 
-        if st.session_state.edited_transcript:
-            # Display edited text lines
-            for paragraph in st.session_state.edited_transcript.split("\n\n"):
-                if paragraph.strip():
-                    st.markdown(
-                        f"""
-                        <div class="transcript-segment-line">
-                            <span class="transcript-text">{paragraph.strip()}</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-        else:
-            # Display timestamped segments from Whisper backend
-            for segment in st.session_state.segments:
-                seg_text = segment.get("text", "").strip()
-                if not seg_text:
-                    continue
-                start_sec = int(round(float(segment.get("start", 0))))
-                h, r = divmod(start_sec, 3600)
-                m, s = divmod(r, 60)
-                ts_str = f"[{h:02d}:{m:02d}:{s:02d}]" if h > 0 else f"[{m:02d}:{s:02d}]"
-
+        transcript_content = st.session_state.edited_transcript if st.session_state.edited_transcript else format_display_transcript(st.session_state.segments)
+        for paragraph in transcript_content.split("\n\n"):
+            clean_para = paragraph.strip()
+            if clean_para:
                 st.markdown(
                     f"""
-                    <div class="transcript-segment-line">
-                        <span class="timestamp-badge">{ts_str}</span>
-                        <span class="transcript-text">{seg_text}</span>
+                    <div class="transcript-paragraph">
+                        {clean_para}
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -1544,7 +1477,7 @@ else:
                 </svg>
             </div>
             <div class="empty-title">Your generated transcript will appear here.</div>
-            <div class="empty-desc">Upload an audio file above and click "Transcribe Audio" to generate the full transcript with timestamps.</div>
+            <div class="empty-desc">Upload an audio file above and click "Transcribe Audio" to generate the full readable transcript.</div>
         </div>
         """,
         unsafe_allow_html=True,

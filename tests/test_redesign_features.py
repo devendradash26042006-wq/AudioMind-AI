@@ -49,15 +49,28 @@ def test_estimate_transcription_time_dynamic():
     assert est_long == "~4 min"
 
 
-def test_format_display_transcript():
+def test_format_display_transcript_plain_text():
     segments = [
-        {"start": 0.0, "end": 2.5, "text": "Hello everyone, welcome to today's session."},
-        {"start": 12.0, "end": 15.0, "text": "Today we are going to discuss artificial intelligence."},
+        {"start": 0.0, "end": 2.5, "text": "This recording is copyright."},
+        {"start": 4.0, "end": 8.0, "text": "In the IELTS test, you hear some recordings and you have to answer questions on them."},
+        {"start": 10.0, "end": 14.0, "text": "You have time to read the instructions and questions."},
     ]
     formatted = format_display_transcript(segments)
-    assert "[00:00] Hello everyone, welcome to today's session." in formatted
-    assert "[00:12] Today we are going to discuss artificial intelligence." in formatted
+    
+    # Verify no timestamps or time markers
+    assert "[" not in formatted
+    assert "]" not in formatted
+    assert "00:0" not in formatted
+    
+    # Verify all actual spoken words are preserved with proper paragraph breaks
+    expected = (
+        "This recording is copyright.\n\n"
+        "In the IELTS test, you hear some recordings and you have to answer questions on them.\n\n"
+        "You have time to read the instructions and questions."
+    )
+    assert formatted == expected
 
 
 def test_empty_segments_format():
     assert format_display_transcript([]) == ""
+
